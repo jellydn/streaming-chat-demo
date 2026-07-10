@@ -15,7 +15,7 @@
 
 ## 🏠 [Homepage](https://github.com/jellydn/2026-07-10-ai-chat-stream-demo)
 
-### ✨ [Demo](https://2026-07-10-ai-chat-stream-demo-kegac5vm6-itman.vercel.app)
+### ✨ [Demo](https://2026-07-10-ai-chat-stream-demo-87r7as49y-itman.vercel.app)
 
 ## Features
 
@@ -28,13 +28,13 @@
 
 ## Modes
 
-| Mode                   | Backend                        | Model                                                                |
-| ---------------------- | ------------------------------ | -------------------------------------------------------------------- |
-| **OpenAI** (Cloud)     | Hono proxy → OpenAI API        | `gpt-4o-mini`                                                        |
-| **OpenRouter** (Cloud) | Hono proxy → OpenRouter API    | Free models (e.g. `google/gemini-2.0-flash-lite-preview-02-05:free`) |
-| **Gemma** (Browser)    | None — runs locally via WebGPU | `gemma-2b-it` (WebLLM)                                               |
+| Mode                   | Backend                        | Model                                             |
+| ---------------------- | ------------------------------ | ------------------------------------------------- |
+| **OpenAI** (Cloud)     | Hono proxy → OpenAI API        | `gpt-4o-mini`                                     |
+| **OpenRouter** (Cloud) | Hono proxy → OpenRouter API    | `openrouter/free` (auto-selects from free models) |
+| **Gemma** (Browser)    | None — runs locally via WebGPU | `gemma-2b-it` (WebLLM)                            |
 
-OpenRouter gives you access to free models — just get an API key and start chatting without OpenAI credits.
+OpenRouter's `openrouter/free` router auto-selects from available free models — just get an API key and start chatting without OpenAI credits.
 
 ## Quick Start
 
@@ -45,6 +45,8 @@ npm install
 # 2. Set your API keys (at least one required for cloud modes)
 cp .env.example .env
 # Edit .env and add: OPENAI_API_KEY=sk-... and/or OPENROUTER_API_KEY=sk-or-v1-...
+# Optional: set APP_URL for OpenRouter referrer header (Vercel deployment URL)
+# Optional: set OPENROUTER_MODEL to override the default openrouter/free
 
 # 3. Start the dev server (client on :5173, server on :3001)
 npm run dev
@@ -103,8 +105,15 @@ Open **http://localhost:5173** to see the side-by-side comparison.
 │   ├── hooks/
 │   │   ├── useStreamingChat.ts   # Streaming: ReadableStream + AbortController
 │   │   └── useNonStreamingChat.ts # Non-streaming: plain fetch → JSON
+│   ├── backends/
+│   │   ├── types.ts            # ChatBackend interface
+│   │   ├── server.ts           # ServerBackend (OpenAI + OpenRouter)
+│   │   ├── gemma.ts            # GemmaBackend (WebLLM adapter)
+│   │   └── useBackend.ts       # ModelMode → ChatBackend hook
 │   └── components/
-│       ├── ChatPanel.tsx        # Chat UI (messages, input, stop button)
+│       ├── ChatPanelLayout.tsx  # Pure UI shell (messages, input, metrics)
+│       ├── StreamingPanel.tsx   # Streaming-specific composition + GemmaLoader
+│       ├── NonStreamingPanel.tsx # Non-streaming composition (no Stop button)
 │       ├── MetricsBar.tsx       # TTFB / total time / token count
 │       ├── ModelSelector.tsx    # OpenAI / OpenRouter / Gemma toggle
 │       ├── GemmaLoader.tsx      # Load Gemma model button
