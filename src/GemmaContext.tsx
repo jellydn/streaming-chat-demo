@@ -21,6 +21,20 @@ interface GemmaContextValue {
 
 const GemmaContext = createContext<GemmaContextValue | null>(null);
 
+/**
+ * Signal handler that sets the abort flag and interrupts the engine.
+ * Called when the AbortController fires (either from the Stop button or cleanup).
+ * Wrapped in try/catch because some engine versions may not expose interruptGenerate.
+ */
+function abortEngine(engineRef: { current: any }, abortingRef: { current: boolean }) {
+  abortingRef.current = true;
+  try {
+    engineRef.current?.interruptGenerate();
+  } catch {
+    // Engine may not expose interruptGenerate; the flag alone breaks the polling loop
+  }
+}
+
 export function GemmaProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [loadingModel, setLoadingModel] = useState(false);
@@ -58,7 +72,7 @@ export function GemmaProvider({ children }: { children: ReactNode }) {
 
   /**
    * Streaming chat: calls onToken for each delta.
-   * AbortController stops generation mid-stream by calling engine.interruptGenerate().
+   * AbortController stops generation mid-stream via abortEngine().
    */
   const sendMessage = useCallback(
     async (
@@ -79,14 +93,7 @@ export function GemmaProvider({ children }: { children: ReactNode }) {
       let tokenCount = 0;
       let ttft: number | null = null;
 
-      controller.signal.addEventListener("abort", () => {
-        abortingRef.current = true;
-        try {
-          engineRef.current?.interruptGenerate();
-        } catch {
-          // Engine may not have interruptGenerate; silently ignore
-        }
-      });
+      controller.signal.addEventListener("abort", () => abortEngine(engineRef, abortingRef));
 
       try {
         const engine = engineRef.current;
@@ -160,6 +167,8 @@ export function GemmaProvider({ children }: { children: ReactNode }) {
         for await (const chunk of completion as AsyncIterable<{
           choices?: Array<{ delta?: { content?: string } }>;
         }>) {
+          if (abortingRef.current) break;
+
           const token = chunk.choices?.[0]?.delta?.content;
           if (token) {
             tokenCount++;
@@ -173,19 +182,27 @@ export function GemmaProvider({ children }: { children: ReactNode }) {
           tokenCount,
         };
       } catch (err: any) {
+        if (abortingRef.current) {
+          return {
+            response: fullResponse,
+            totalTime: performance.now() - startTime,
+            tokenCount,
+          };
+        }
         throw err instanceof Error ? err : new Error(String(err));
       }
     },
     [],
   );
 
+  /**
+   * Sets the abort flag and interrupts the engine. The AbortController in
+   * useStreamingChat.ts also fires controller.abort(), which triggers the
+   * signal listener — but stop() directly interrupts as well so the effect
+   * is immediate even before the signal listener runs.
+   */
   const stop = useCallback(() => {
-    abortingRef.current = true;
-    try {
-      engineRef.current?.interruptGenerate();
-    } catch {
-      // Engine may not expose interruptGenerate; flag alone breaks the loop
-    }
+    abortEngine(engineRef, abortingRef);
   }, []);
 
   return (

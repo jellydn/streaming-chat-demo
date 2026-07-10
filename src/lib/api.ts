@@ -19,6 +19,7 @@ function buildCompletionMetrics(startTime: number, tokenCount: number): Metrics 
  */
 export async function streamChat(
   message: string,
+  provider: "openai" | "openrouter",
   signal: AbortSignal,
   callbacks: {
     onToken: (token: string) => void;
@@ -37,7 +38,7 @@ export async function streamChat(
     const response = await fetch("/api/chat/stream", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ message }),
+      body: JSON.stringify({ message, provider }),
       signal,
     });
 
@@ -100,13 +101,16 @@ export async function streamChat(
 }
 
 /** Non-streaming fetch */
-export async function fetchChat(message: string): Promise<{ content: string; totalTime: number }> {
+export async function fetchChat(
+  message: string,
+  provider: "openai" | "openrouter",
+): Promise<{ content: string; totalTime: number }> {
   const startTime = performance.now();
 
   const response = await fetch("/api/chat", {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ message }),
+    body: JSON.stringify({ message, provider }),
   });
 
   if (!response.ok) {

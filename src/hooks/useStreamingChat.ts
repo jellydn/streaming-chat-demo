@@ -81,7 +81,7 @@ export function useStreamingChat(panelId: string, model: ModelMode) {
       if (model === "gemma") {
         await gemma.sendMessage(content, handleToken, handleComplete, handleError, controller);
       } else {
-        await streamChat(content, controller.signal, {
+        await streamChat(content, model, controller.signal, {
           onToken: handleToken,
           onTTFB: handleTTFB,
           onComplete: handleComplete,

@@ -1,6 +1,6 @@
 /** Shared types for the streaming chat demo */
 
-export type ModelMode = "openai" | "gemma";
+export type ModelMode = "openai" | "openrouter" | "gemma";
 
 export interface Metrics {
   timeToFirstToken: number | null; // ms

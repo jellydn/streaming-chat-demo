@@ -9,16 +9,18 @@ A side-by-side demo comparing **streaming** vs **non-streaming** AI chat. React 
 - `npm run lint` (`oxlint src server`) / `npm run lint:fix`; `npm run format` (`oxfmt --write .`) / `npm run format:check`. oxlint only enforces `no-unused-vars` (warn) and has `no-console` off — don't expect it to catch much.
 - `npm run build` — `tsc -b && vite build`. `npm run preview` serves the production build.
 
-## Two modes (see `ModelMode` in `src/types.ts`)
+## Three modes (see `ModelMode` in `src/types.ts`)
 
-- **openai** (cloud): client calls `/api/chat/stream` and `/api/chat`; Vite proxies `/api` → `http://localhost:3001` (see `vite.config.ts`). The Hono server (`server/index.ts`) forwards to OpenAI `gpt-4o-mini` and **pipes the raw SSE body back**. Requires `OPENAI_API_KEY` in `.env`; without it the server returns 500 `OPENAI_API_KEY not set on server`. Server port is overridable via `PORT` (default 3001).
+- **openai** (cloud): client calls `/api/chat/stream` and `/api/chat` with `provider: "openai"`. The Hono server forwards to OpenAI `gpt-4o-mini` and pipes the raw SSE body back. Requires `OPENAI_API_KEY` in `.env`; without it the server returns 500.
+- **openrouter** (cloud): same endpoints, `provider: "openrouter"`. Server forwards to OpenRouter's API with the free `OPENROUTER_MODEL` (defaults to `google/gemini-2.0-flash-lite-preview-02-05:free`). Requires `OPENROUTER_API_KEY` in `.env`. Also sends `HTTP-Referer` and `X-Title` headers per OpenRouter conventions.
 - **gemma** (browser): runs fully client-side via `@mlc-ai/web-llm` + WebGPU/Chrome — **no server, no API key**. Model `gemma-2b-it-q4f32_1-MLC` (~1.3 GB) is lazy-imported in `src/GemmaContext.tsx` and must be triggered by the in-UI "Load Gemma" button before chatting.
 
 ## Architecture gotchas
 
 - Two separate TS projects: `tsconfig.app.json` (compiles `src`, DOM lib, React JSX, `noUnusedLocals`/`noUnusedParameters` on) and `tsconfig.server.json` (compiles `server`, Node types). The root `tsconfig.json` only holds project references. Respect the boundary — server code has no DOM, client code has no Node globals.
-- `src/lib/api.ts` hand-rolls the SSE parser (`data: ...` lines, `[DONE]` terminator). The OpenAI streaming path returns no `timeToFirstToken` (TTFB comes from the client's `performance.now()` instead).
+- `src/lib/api.ts` hand-rolls the SSE parser (`data: ...` lines, `[DONE]` terminator). The streaming path returns no `timeToFirstToken` (TTFB comes from the client's `performance.now()` instead).
 - `dist/` is build output and `.gitignore` correctly ignores `node_modules`, `.env*`, `dist`, and `*.tsbuildinfo`.
+- The server dispatches to OpenAI or OpenRouter based on the `provider` field in the request body. `server/app.ts`'s `getConfig()` returns the right base URL, model, and auth headers per provider.
 
 ## Conventions
 

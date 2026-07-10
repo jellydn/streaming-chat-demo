@@ -3,6 +3,13 @@ import type { PanelState, ModelMode, ChatMessage } from "../types";
 import { fetchChat } from "../lib/api";
 import { useGemma } from "../GemmaContext";
 
+function buildMetrics(
+  totalTime: number,
+  tokenCount: number,
+): { timeToFirstToken: null; totalTime: number; tokenCount: number } {
+  return { timeToFirstToken: null, totalTime, tokenCount };
+}
+
 export function useNonStreamingChat(panelId: string, model: ModelMode) {
   const [state, setState] = useState<PanelState>({
     id: panelId,
@@ -45,17 +52,13 @@ export function useNonStreamingChat(panelId: string, model: ModelMode) {
               ...prev,
               messages: msgs,
               isLoading: false,
-              metrics: {
-                timeToFirstToken: null,
-                totalTime,
-                tokenCount,
-              },
+              metrics: buildMetrics(totalTime, tokenCount),
             };
           });
           return;
         }
 
-        const { content: responseContent, totalTime } = await fetchChat(content);
+        const { content: responseContent, totalTime } = await fetchChat(content, model);
 
         setState((prev) => {
           const msgs = [...prev.messages];
@@ -69,11 +72,7 @@ export function useNonStreamingChat(panelId: string, model: ModelMode) {
             ...prev,
             messages: msgs,
             isLoading: false,
-            metrics: {
-              timeToFirstToken: null,
-              totalTime,
-              tokenCount,
-            },
+            metrics: buildMetrics(totalTime, tokenCount),
           };
         });
       } catch (err: any) {
