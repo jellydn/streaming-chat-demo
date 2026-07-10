@@ -1,0 +1,15 @@
+node_modules
+dist
+.git
+.env
+.env.*
+*.md
+*.log
+.vercel
+.github
+.planning
+prek.toml
+.oxlintrc.json
+.oxlintignore
+oxfmt.toml
+api
