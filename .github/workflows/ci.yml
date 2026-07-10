@@ -13,21 +13,20 @@ jobs:
     steps:
       - uses: actions/checkout@v7
 
-      - uses: actions/setup-node@v6
+      - uses: oven-sh/setup-bun@v2
         with:
-          node-version: 24
-          cache: npm
+          bun-version: latest
 
-      - run: npm ci
+      - run: bun install
 
       - name: Lint (oxlint)
-        run: npm run lint
+        run: bun run lint
 
       - name: Format (oxfmt)
-        run: npm run format:check
+        run: bun run format:check
 
       - name: Typecheck (tsc)
-        run: npm run typecheck
+        run: bun run typecheck
 
       - name: Build
-        run: npm run build
+        run: bun run build
