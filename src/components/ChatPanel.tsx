@@ -9,7 +9,6 @@ interface Props {
   mode: "streaming" | "non-streaming";
   model: ModelMode;
   panelId: string;
-  onMetricsChange?: () => void;
 }
 
 export function ChatPanel({ mode, model, panelId }: Props) {
@@ -108,7 +107,6 @@ export function ChatPanel({ mode, model, panelId }: Props) {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           disabled={isBlocked}
-          readOnly={state.isLoading && !isBlocked}
           placeholder={
             isBlocked
               ? "Load Gemma model first…"
