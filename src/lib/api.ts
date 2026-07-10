@@ -1,5 +1,16 @@
 import type { Metrics } from "../types";
 
+const SSE_DATA_PREFIX = "data:";
+const SSE_DATA_PREFIX_LEN = SSE_DATA_PREFIX.length;
+
+function buildCompletionMetrics(startTime: number, tokenCount: number): Metrics {
+  return {
+    timeToFirstToken: null,
+    totalTime: performance.now() - startTime,
+    tokenCount,
+  };
+}
+
 /**
  * Parse an OpenAI SSE stream from a ReadableStream.
  * Calls onToken for each text delta, onTTFB when the first token arrives,
@@ -52,15 +63,11 @@ export async function streamChat(
 
       for (const line of lines) {
         const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith("data:")) continue;
+        if (!trimmed || !trimmed.startsWith(SSE_DATA_PREFIX)) continue;
 
-        const payload = trimmed.slice(5).trim();
+        const payload = trimmed.slice(SSE_DATA_PREFIX_LEN).trim();
         if (payload === "[DONE]") {
-          onComplete({
-            timeToFirstToken: null,
-            totalTime: performance.now() - startTime,
-            tokenCount,
-          });
+          onComplete(buildCompletionMetrics(startTime, tokenCount));
           return;
         }
 
@@ -82,18 +89,10 @@ export async function streamChat(
     }
 
     // Stream ended without [DONE] — interrupted or truncated
-    onComplete({
-      timeToFirstToken: null,
-      totalTime: performance.now() - startTime,
-      tokenCount,
-    });
+    onComplete(buildCompletionMetrics(startTime, tokenCount));
   } catch (err: any) {
     if (err.name === "AbortError") {
-      onComplete({
-        timeToFirstToken: null,
-        totalTime: performance.now() - startTime,
-        tokenCount,
-      });
+      onComplete(buildCompletionMetrics(startTime, tokenCount));
     } else {
       onError(err instanceof Error ? err : new Error(String(err)));
     }
