@@ -1,6 +1,7 @@
 import { useState, useCallback } from "react";
 import type { PanelState, ModelMode, ChatMessage } from "../types";
 import { fetchChat } from "../lib/api";
+import { useGemma } from "../GemmaContext";
 
 export function useNonStreamingChat(panelId: string, model: ModelMode) {
   const [state, setState] = useState<PanelState>({
@@ -14,6 +15,8 @@ export function useNonStreamingChat(panelId: string, model: ModelMode) {
     error: null,
     controller: null,
   });
+
+  const gemma = useGemma();
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -29,14 +32,26 @@ export function useNonStreamingChat(panelId: string, model: ModelMode) {
       }));
 
       try {
-        // For Gemma non-streaming, we simulate (WebLLM always streams)
         if (model === "gemma") {
-          // Non-streaming Gemma isn't practical — show a note
-          setState((prev) => ({
-            ...prev,
-            isLoading: false,
-            error: "Non-streaming mode with browser-based AI is not supported. Use OpenAI.",
-          }));
+          const { response, totalTime, tokenCount } = await gemma.sendMessageNonStreaming(content);
+
+          setState((prev) => {
+            const msgs = [...prev.messages];
+            msgs[msgs.length - 1] = {
+              ...msgs[msgs.length - 1],
+              content: response || "[empty response]",
+            };
+            return {
+              ...prev,
+              messages: msgs,
+              isLoading: false,
+              metrics: {
+                timeToFirstToken: null,
+                totalTime,
+                tokenCount,
+              },
+            };
+          });
           return;
         }
 
@@ -44,18 +59,18 @@ export function useNonStreamingChat(panelId: string, model: ModelMode) {
 
         setState((prev) => {
           const msgs = [...prev.messages];
-          const last = msgs[msgs.length - 1];
           msgs[msgs.length - 1] = {
-            ...last,
+            ...msgs[msgs.length - 1],
             content: responseContent || "[empty response]",
           };
-          const tokenCount = responseContent.split(/\s+/).filter(Boolean).length;
+          // Token count estimate: ~4 chars per token for English text
+          const tokenCount = Math.ceil(responseContent.length / 4);
           return {
             ...prev,
             messages: msgs,
             isLoading: false,
             metrics: {
-              timeToFirstToken: totalTime,
+              timeToFirstToken: null,
               totalTime,
               tokenCount,
             },
@@ -69,7 +84,7 @@ export function useNonStreamingChat(panelId: string, model: ModelMode) {
         }));
       }
     },
-    [model],
+    [model, gemma],
   );
 
   const reset = useCallback(() => {
