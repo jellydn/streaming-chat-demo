@@ -1,0 +1,33 @@
+# prek — pre-commit quality checks for this project
+
+fail_fast = true
+
+[[repos]]
+repo = "local"
+[[repos.hooks]]
+id = "oxfmt"
+name = "oxfmt"
+entry = "npx oxfmt --check src server api *.md *.json *.toml"
+language = "system"
+pass_filenames = false
+always_run = true
+
+[[repos]]
+repo = "local"
+[[repos.hooks]]
+id = "oxlint"
+name = "oxlint"
+entry = "npx oxlint src server"
+language = "system"
+pass_filenames = false
+always_run = true
+
+[[repos]]
+repo = "local"
+[[repos.hooks]]
+id = "typecheck"
+name = "TypeScript typecheck"
+entry = "npx tsc -b --noEmit"
+language = "system"
+pass_filenames = false
+always_run = true
