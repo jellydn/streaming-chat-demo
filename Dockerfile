@@ -1,5 +1,5 @@
 # ---- Build Stage: Vite frontend ----
-FROM node:22-alpine AS build
+FROM node:24-alpine AS build
 
 WORKDIR /app
 
@@ -14,7 +14,7 @@ COPY src/ ./src/
 RUN npm run build
 
 # ---- Production Stage: Hono server + static files ----
-FROM node:22-alpine
+FROM node:24-alpine
 
 WORKDIR /app
 
