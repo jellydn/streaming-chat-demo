@@ -5,7 +5,8 @@ A side-by-side demo comparing **streaming** vs **non-streaming** AI chat. React 
 ## Run it
 
 - `npm run dev` — starts **both** the Vite client (`:5173`) and the Hono server (`:3001`) via `concurrently`. Always use this for cloud mode; running just `vite` leaves `/api` unproxied.
-- `npm run typecheck` — type-check via `tsc -b --noEmit`. There is **no** `lint` or `test` script in this repo; do not assume they exist.
+- `npm run typecheck` — type-check via `tsc -b --noEmit`. There is **no** test script in this repo.
+- `npm run lint` (`oxlint src server`) / `npm run lint:fix`; `npm run format` (`oxfmt --write .`) / `npm run format:check`. oxlint only enforces `no-unused-vars` (warn) and has `no-console` off — don't expect it to catch much.
 - `npm run build` — `tsc -b && vite build`. `npm run preview` serves the production build.
 
 ## Two modes (see `ModelMode` in `src/types.ts`)
@@ -17,7 +18,7 @@ A side-by-side demo comparing **streaming** vs **non-streaming** AI chat. React 
 
 - Two separate TS projects: `tsconfig.app.json` (compiles `src`, DOM lib, React JSX, `noUnusedLocals`/`noUnusedParameters` on) and `tsconfig.server.json` (compiles `server`, Node types). The root `tsconfig.json` only holds project references. Respect the boundary — server code has no DOM, client code has no Node globals.
 - `src/lib/api.ts` hand-rolls the SSE parser (`data: ...` lines, `[DONE]` terminator). The OpenAI streaming path returns no `timeToFirstToken` (TTFB comes from the client's `performance.now()` instead).
-- `dist/` is build output and `.gitignore` is currently empty — `node_modules`, `.env`, and `dist` are **not** ignored.
+- `dist/` is build output and `.gitignore` correctly ignores `node_modules`, `.env*`, `dist`, and `*.tsbuildinfo`.
 
 ## Conventions
 
