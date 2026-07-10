@@ -6,7 +6,7 @@ const OPENAI_MODEL = "gpt-4o-mini";
 const OPENAI_BASE = "https://api.openai.com/v1/chat/completions";
 
 const OPENROUTER_BASE = "https://openrouter.ai/api/v1/chat/completions";
-const OPENROUTER_DEFAULT_MODEL = "google/gemini-2.0-flash-lite-preview-02-05:free";
+const OPENROUTER_DEFAULT_MODEL = "openrouter/free";
 
 const app = new Hono();
 
@@ -90,7 +90,7 @@ app.post("/api/chat/stream", async (c) => {
 
   if (!response.ok) {
     const err = await response.text();
-    return c.json({ error: err }, response.status as any);
+    return c.json({ error: err }, 502);
   }
 
   return stream(c, async (s) => {
@@ -112,7 +112,7 @@ app.post("/api/chat", async (c) => {
   const response = await fetchAI(config, message, false);
 
   const data = await response.json();
-  if (!response.ok) return c.json({ error: data }, response.status as any);
+  if (!response.ok) return c.json({ error: data }, 502);
 
   return c.json({ content: data.choices[0]?.message?.content ?? "" });
 });
