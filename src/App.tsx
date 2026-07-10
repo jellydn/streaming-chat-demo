@@ -1,11 +1,14 @@
 import { useState } from "react";
 import type { ModelMode } from "./types";
-import { ChatPanel } from "./components/ChatPanel";
+import { useBackend } from "./backends/useBackend";
+import { StreamingPanel } from "./components/StreamingPanel";
+import { NonStreamingPanel } from "./components/NonStreamingPanel";
 import { ModelSelector } from "./components/ModelSelector";
 import { ComparisonSummary } from "./components/ComparisonSummary";
 
 export function App() {
   const [model, setModel] = useState<ModelMode>("openai");
+  const backend = useBackend(model);
 
   return (
     <div className="min-h-screen flex flex-col">
@@ -34,12 +37,7 @@ export function App() {
             <span className="text-sm font-medium">Streaming</span>
             <span className="text-xs text-zinc-500 ml-auto">Tokens appear in real time</span>
           </div>
-          <ChatPanel
-            key={`streaming-${model}`}
-            mode="streaming"
-            model={model}
-            panelId="streaming"
-          />
+          <StreamingPanel key={`streaming-${model}`} backend={backend} />
         </div>
 
         {/* Non-streaming panel */}
@@ -49,12 +47,7 @@ export function App() {
             <span className="text-sm font-medium">Non‑Streaming</span>
             <span className="text-xs text-zinc-500 ml-auto">Full response appears at once</span>
           </div>
-          <ChatPanel
-            key={`non-streaming-${model}`}
-            mode="non-streaming"
-            model={model}
-            panelId="non-streaming"
-          />
+          <NonStreamingPanel key={`non-streaming-${model}`} backend={backend} />
         </div>
       </main>
 

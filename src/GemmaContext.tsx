@@ -1,7 +1,15 @@
-import { createContext, useContext, useState, useRef, useCallback, type ReactNode } from "react";
+import {
+  createContext,
+  useContext,
+  useState,
+  useRef,
+  useCallback,
+  useMemo,
+  type ReactNode,
+} from "react";
 import type { Metrics } from "./types";
 
-interface GemmaContextValue {
+export interface GemmaContextValue {
   ready: boolean;
   loadingModel: boolean;
   loadProgress: string;
@@ -20,6 +28,31 @@ interface GemmaContextValue {
 }
 
 const GemmaContext = createContext<GemmaContextValue | null>(null);
+
+/** Shared chunk shape for WebLLM streaming. */
+type GemmaChunk = { choices?: Array<{ delta?: { content?: string } }> };
+
+/**
+ * Async generator that yields tokens from a Gemma streaming completion.
+ * Checks abortingRef on each chunk so both streaming and non-streaming paths
+ * share the same abort/iteration logic.
+ */
+async function* streamGemmaTokens(
+  engine: any,
+  content: string,
+  abortingRef: { current: boolean },
+): AsyncGenerator<string> {
+  const completion = await engine.chat.completions.create({
+    messages: [{ role: "user", content }],
+    stream: true,
+  });
+
+  for await (const chunk of completion as AsyncIterable<GemmaChunk>) {
+    if (abortingRef.current) break;
+    const token = chunk.choices?.[0]?.delta?.content;
+    if (token) yield token;
+  }
+}
 
 /**
  * Signal handler that sets the abort flag and interrupts the engine.
@@ -96,27 +129,13 @@ export function GemmaProvider({ children }: { children: ReactNode }) {
       controller.signal.addEventListener("abort", () => abortEngine(engineRef, abortingRef));
 
       try {
-        const engine = engineRef.current;
-
-        const completion = await engine.chat.completions.create({
-          messages: [{ role: "user", content }],
-          stream: true,
-        });
-
-        for await (const chunk of completion as AsyncIterable<{
-          choices?: Array<{ delta?: { content?: string } }>;
-        }>) {
-          if (abortingRef.current) break;
-
-          const token = chunk.choices?.[0]?.delta?.content;
-          if (token) {
-            if (firstToken) {
-              firstToken = false;
-              ttft = performance.now() - startTime;
-            }
-            tokenCount++;
-            onToken(token);
+        for await (const token of streamGemmaTokens(engineRef.current, content, abortingRef)) {
+          if (firstToken) {
+            firstToken = false;
+            ttft = performance.now() - startTime;
           }
+          tokenCount++;
+          onToken(token);
         }
 
         onComplete({
@@ -157,23 +176,9 @@ export function GemmaProvider({ children }: { children: ReactNode }) {
       let tokenCount = 0;
 
       try {
-        const engine = engineRef.current;
-
-        const completion = await engine.chat.completions.create({
-          messages: [{ role: "user", content }],
-          stream: true,
-        });
-
-        for await (const chunk of completion as AsyncIterable<{
-          choices?: Array<{ delta?: { content?: string } }>;
-        }>) {
-          if (abortingRef.current) break;
-
-          const token = chunk.choices?.[0]?.delta?.content;
-          if (token) {
-            tokenCount++;
-            fullResponse += token;
-          }
+        for await (const token of streamGemmaTokens(engineRef.current, content, abortingRef)) {
+          tokenCount++;
+          fullResponse += token;
         }
 
         return {
@@ -207,15 +212,18 @@ export function GemmaProvider({ children }: { children: ReactNode }) {
 
   return (
     <GemmaContext.Provider
-      value={{
-        ready,
-        loadingModel,
-        loadProgress,
-        initEngine,
-        sendMessage,
-        sendMessageNonStreaming,
-        stop,
-      }}
+      value={useMemo(
+        () => ({
+          ready,
+          loadingModel,
+          loadProgress,
+          initEngine,
+          sendMessage,
+          sendMessageNonStreaming,
+          stop,
+        }),
+        [ready, loadingModel, loadProgress, initEngine, sendMessage, sendMessageNonStreaming, stop],
+      )}
     >
       {children}
     </GemmaContext.Provider>

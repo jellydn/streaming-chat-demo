@@ -8,6 +8,13 @@ export interface Metrics {
   tokenCount: number;
 }
 
+/** Shared idle-metrics sentinel — avoids repeating the literal 6× across hooks. */
+export const IDLE_METRICS: Metrics = {
+  timeToFirstToken: null,
+  totalTime: null,
+  tokenCount: 0,
+};
+
 export interface ChatMessage {
   role: "user" | "assistant";
   content: string;
@@ -22,5 +29,4 @@ export interface PanelState {
   isStreaming: boolean;
   metrics: Metrics;
   error: string | null;
-  controller: AbortController | null;
 }

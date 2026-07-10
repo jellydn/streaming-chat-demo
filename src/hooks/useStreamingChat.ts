@@ -1,23 +1,21 @@
 import { useState, useRef, useCallback } from "react";
-import type { PanelState, ModelMode, ChatMessage } from "../types";
-import { streamChat } from "../lib/api";
-import { useGemma } from "../GemmaContext";
+import { IDLE_METRICS, type PanelState, type ChatMessage } from "../types";
+import type { ChatBackend } from "../backends/types";
 
-export function useStreamingChat(panelId: string, model: ModelMode) {
+export function useStreamingChat(panelId: string, backend: ChatBackend) {
   const [state, setState] = useState<PanelState>({
     id: panelId,
     mode: "streaming",
-    model,
+    model: backend.name as PanelState["model"],
     messages: [],
     isLoading: false,
     isStreaming: false,
-    metrics: { timeToFirstToken: null, totalTime: null, tokenCount: 0 },
+    metrics: IDLE_METRICS,
     error: null,
-    controller: null,
   });
 
   const ttftRef = useRef<number | null>(null);
-  const gemma = useGemma();
+  const controllerRef = useRef<AbortController | null>(null);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -25,6 +23,7 @@ export function useStreamingChat(panelId: string, model: ModelMode) {
       const assistantMsg: ChatMessage = { role: "assistant", content: "" };
 
       const controller = new AbortController();
+      controllerRef.current = controller;
       ttftRef.current = null;
 
       setState((prev) => ({
@@ -33,8 +32,7 @@ export function useStreamingChat(panelId: string, model: ModelMode) {
         isLoading: true,
         isStreaming: true,
         error: null,
-        metrics: { timeToFirstToken: null, totalTime: null, tokenCount: 0 },
-        controller,
+        metrics: IDLE_METRICS,
       }));
 
       const handleToken = (token: string) => {
@@ -55,11 +53,11 @@ export function useStreamingChat(panelId: string, model: ModelMode) {
         totalTime: number | null;
         tokenCount: number;
       }) => {
+        controllerRef.current = null;
         setState((prev) => ({
           ...prev,
           isLoading: false,
           isStreaming: false,
-          controller: null,
           metrics: {
             timeToFirstToken: ttftRef.current,
             totalTime: metrics.totalTime,
@@ -69,56 +67,51 @@ export function useStreamingChat(panelId: string, model: ModelMode) {
       };
 
       const handleError = (err: Error) => {
+        controllerRef.current = null;
         setState((prev) => ({
           ...prev,
           isLoading: false,
           isStreaming: false,
           error: err.message,
-          controller: null,
         }));
       };
 
-      if (model === "gemma") {
-        await gemma.sendMessage(content, handleToken, handleComplete, handleError, controller);
-      } else {
-        await streamChat(content, model, controller.signal, {
-          onToken: handleToken,
-          onTTFB: handleTTFB,
-          onComplete: handleComplete,
-          onError: handleError,
-        });
-      }
+      await backend.streamMessage(content, controller.signal, {
+        onToken: handleToken,
+        onTTFB: handleTTFB,
+        onComplete: handleComplete,
+        onError: handleError,
+      });
     },
-    [model, gemma],
+    [backend],
   );
 
   const stop = useCallback(() => {
-    state.controller?.abort();
-    if (model === "gemma") {
-      gemma.stop();
-    }
+    controllerRef.current?.abort();
+    backend.stop();
+    controllerRef.current = null;
     setState((prev) => ({
       ...prev,
       isLoading: false,
       isStreaming: false,
-      controller: null,
     }));
-  }, [state.controller, model, gemma]);
+  }, [backend]);
 
   const reset = useCallback(() => {
-    state.controller?.abort();
+    controllerRef.current?.abort();
+    backend.stop();
+    controllerRef.current = null;
     setState({
       id: panelId,
       mode: "streaming",
-      model,
+      model: backend.name as PanelState["model"],
       messages: [],
       isLoading: false,
       isStreaming: false,
-      metrics: { timeToFirstToken: null, totalTime: null, tokenCount: 0 },
+      metrics: IDLE_METRICS,
       error: null,
-      controller: null,
     });
-  }, [panelId, model, state.controller]);
+  }, [panelId, backend.name]);
 
-  return { state, sendMessage, stop, reset, gemmaReady: gemma.ready };
+  return { state, sendMessage, stop, reset };
 }

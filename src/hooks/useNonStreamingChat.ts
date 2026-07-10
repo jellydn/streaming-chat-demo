@@ -1,7 +1,6 @@
 import { useState, useCallback } from "react";
-import type { PanelState, ModelMode, ChatMessage } from "../types";
-import { fetchChat } from "../lib/api";
-import { useGemma } from "../GemmaContext";
+import { IDLE_METRICS, type PanelState, type ChatMessage } from "../types";
+import type { ChatBackend } from "../backends/types";
 
 function buildMetrics(
   totalTime: number,
@@ -10,20 +9,17 @@ function buildMetrics(
   return { timeToFirstToken: null, totalTime, tokenCount };
 }
 
-export function useNonStreamingChat(panelId: string, model: ModelMode) {
+export function useNonStreamingChat(panelId: string, backend: ChatBackend) {
   const [state, setState] = useState<PanelState>({
     id: panelId,
     mode: "non-streaming",
-    model,
+    model: backend.name as PanelState["model"],
     messages: [],
     isLoading: false,
     isStreaming: false,
-    metrics: { timeToFirstToken: null, totalTime: null, tokenCount: 0 },
+    metrics: IDLE_METRICS,
     error: null,
-    controller: null,
   });
-
-  const gemma = useGemma();
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -35,30 +31,14 @@ export function useNonStreamingChat(panelId: string, model: ModelMode) {
         messages: [...prev.messages, userMsg, assistantMsg],
         isLoading: true,
         error: null,
-        metrics: { timeToFirstToken: null, totalTime: null, tokenCount: 0 },
+        metrics: IDLE_METRICS,
       }));
 
       try {
-        if (model === "gemma") {
-          const { response, totalTime, tokenCount } = await gemma.sendMessageNonStreaming(content);
-
-          setState((prev) => {
-            const msgs = [...prev.messages];
-            msgs[msgs.length - 1] = {
-              ...msgs[msgs.length - 1],
-              content: response || "[empty response]",
-            };
-            return {
-              ...prev,
-              messages: msgs,
-              isLoading: false,
-              metrics: buildMetrics(totalTime, tokenCount),
-            };
-          });
-          return;
-        }
-
-        const { content: responseContent, totalTime } = await fetchChat(content, model);
+        const { content: responseContent, totalTime } = await backend.completeMessage(content);
+        // Rough English-text estimate: ~4 characters per token
+        const CHARS_PER_TOKEN = 4;
+        const tokenCount = Math.ceil(responseContent.length / CHARS_PER_TOKEN);
 
         setState((prev) => {
           const msgs = [...prev.messages];
@@ -66,8 +46,6 @@ export function useNonStreamingChat(panelId: string, model: ModelMode) {
             ...msgs[msgs.length - 1],
             content: responseContent || "[empty response]",
           };
-          // Token count estimate: ~4 chars per token for English text
-          const tokenCount = Math.ceil(responseContent.length / 4);
           return {
             ...prev,
             messages: msgs,
@@ -83,22 +61,21 @@ export function useNonStreamingChat(panelId: string, model: ModelMode) {
         }));
       }
     },
-    [model, gemma],
+    [backend],
   );
 
   const reset = useCallback(() => {
     setState({
       id: panelId,
       mode: "non-streaming",
-      model,
+      model: backend.name as PanelState["model"],
       messages: [],
       isLoading: false,
       isStreaming: false,
-      metrics: { timeToFirstToken: null, totalTime: null, tokenCount: 0 },
+      metrics: IDLE_METRICS,
       error: null,
-      controller: null,
     });
-  }, [panelId, model]);
+  }, [panelId, backend.name]);
 
   return { state, sendMessage, reset };
 }

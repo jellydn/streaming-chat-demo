@@ -11,6 +11,37 @@ function buildCompletionMetrics(startTime: number, tokenCount: number): Metrics 
   };
 }
 
+/** Parse one SSE line. Returns true if [DONE] was seen. */
+function parseSseLine(
+  line: string,
+  callbacks: { onTTFB: (ms: number) => void; onToken: (token: string) => void },
+  refs: { firstToken: boolean; tokenCount: number },
+  startTime: number,
+): boolean {
+  const trimmed = line.trim();
+  if (!trimmed || !trimmed.startsWith(SSE_DATA_PREFIX)) return false;
+
+  const payload = trimmed.slice(SSE_DATA_PREFIX_LEN).trim();
+  if (payload === "[DONE]") return true;
+
+  try {
+    const parsed = JSON.parse(payload);
+    const content = parsed.choices?.[0]?.delta?.content;
+    if (content) {
+      if (refs.firstToken) {
+        refs.firstToken = false;
+        callbacks.onTTFB(performance.now() - startTime);
+      }
+      refs.tokenCount++;
+      callbacks.onToken(content);
+    }
+  } catch {
+    // Skip malformed chunks
+  }
+
+  return false;
+}
+
 /**
  * Parse an OpenAI SSE stream from a ReadableStream.
  * Calls onToken for each text delta, onTTFB when the first token arrives,
@@ -29,8 +60,7 @@ export async function streamChat(
   },
 ): Promise<void> {
   const startTime = performance.now();
-  let firstToken = true;
-  let tokenCount = 0;
+  const refs = { firstToken: true, tokenCount: 0 };
 
   const { onToken, onComplete, onError, onTTFB } = callbacks;
 
@@ -44,7 +74,7 @@ export async function streamChat(
 
     if (!response.ok) {
       const errData = await response.json().catch(() => ({}));
-      throw new Error((errData as any).error ?? `HTTP ${response.status}`);
+      throw new Error(errData.error ?? `HTTP ${response.status}`);
     }
 
     const reader = response.body!.getReader();
@@ -63,37 +93,18 @@ export async function streamChat(
       buffer = lines.pop() ?? "";
 
       for (const line of lines) {
-        const trimmed = line.trim();
-        if (!trimmed || !trimmed.startsWith(SSE_DATA_PREFIX)) continue;
-
-        const payload = trimmed.slice(SSE_DATA_PREFIX_LEN).trim();
-        if (payload === "[DONE]") {
-          onComplete(buildCompletionMetrics(startTime, tokenCount));
+        if (parseSseLine(line, { onTTFB, onToken }, refs, startTime)) {
+          onComplete(buildCompletionMetrics(startTime, refs.tokenCount));
           return;
-        }
-
-        try {
-          const parsed = JSON.parse(payload);
-          const content = parsed.choices?.[0]?.delta?.content;
-          if (content) {
-            if (firstToken) {
-              firstToken = false;
-              onTTFB(performance.now() - startTime);
-            }
-            tokenCount++;
-            onToken(content);
-          }
-        } catch {
-          // Skip malformed chunks
         }
       }
     }
 
     // Stream ended without [DONE] — interrupted or truncated
-    onComplete(buildCompletionMetrics(startTime, tokenCount));
+    onComplete(buildCompletionMetrics(startTime, refs.tokenCount));
   } catch (err: any) {
     if (err.name === "AbortError") {
-      onComplete(buildCompletionMetrics(startTime, tokenCount));
+      onComplete(buildCompletionMetrics(startTime, refs.tokenCount));
     } else {
       onError(err instanceof Error ? err : new Error(String(err)));
     }
@@ -115,7 +126,7 @@ export async function fetchChat(
 
   if (!response.ok) {
     const errData = await response.json().catch(() => ({}));
-    throw new Error((errData as any).error ?? `HTTP ${response.status}`);
+    throw new Error(errData.error ?? `HTTP ${response.status}`);
   }
 
   const data = await response.json();
