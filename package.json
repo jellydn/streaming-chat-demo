@@ -18,7 +18,7 @@
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.78",
     "hono": "^4.7.5",
-    "openai": "^4.91.0",
+    "openai": "^6.0.0",
     "react": "^19.0.0",
     "react-dom": "^19.0.0"
   },
