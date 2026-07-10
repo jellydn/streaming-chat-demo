@@ -1,0 +1,44 @@
+@import "tailwindcss";
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+  width: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: #52525b;
+  border-radius: 3px;
+}
+
+/* Typing cursor animation */
+@keyframes blink {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0;
+  }
+}
+.typing-cursor::after {
+  content: "▊";
+  animation: blink 1s step-end infinite;
+  color: #a78bfa;
+  margin-left: 1px;
+}
+
+/* Pulse for loading state */
+@keyframes pulse-subtle {
+  0%,
+  100% {
+    opacity: 0.4;
+  }
+  50% {
+    opacity: 0.8;
+  }
+}
+.loading-pulse {
+  animation: pulse-subtle 1.5s ease-in-out infinite;
+}
