@@ -13,7 +13,8 @@
     "lint": "oxlint src server",
     "lint:fix": "oxlint src server --fix",
     "format": "oxfmt --write .",
-    "format:check": "oxfmt --check ."
+    "format:check": "oxfmt --check .",
+    "test": "vitest run"
   },
   "dependencies": {
     "@mlc-ai/web-llm": "^0.2.78",
@@ -28,12 +29,13 @@
     "@types/react": "^19.0.0",
     "@types/react-dom": "^19.0.0",
     "@vitejs/plugin-react": "6",
-    "concurrently": "10"
+    "concurrently": "10",
     "oxfmt": "^0.58.0",
     "oxlint": "^1.73.0",
     "tailwindcss": "^4.1.4",
     "tsx": "^4.19.3",
     "typescript": "6",
-    "vite": "8"
+    "vite": "8",
+    "vitest": "^2.1.8"
   }
 }

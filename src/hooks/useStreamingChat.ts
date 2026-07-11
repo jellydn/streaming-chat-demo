@@ -16,6 +16,8 @@ export function useStreamingChat(panelId: string, backend: ChatBackend) {
 
   const ttftRef = useRef<number | null>(null);
   const controllerRef = useRef<AbortController | null>(null);
+  const pendingTokensRef = useRef<string>("");
+  const flushTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   const sendMessage = useCallback(
     async (content: string) => {
@@ -35,13 +37,30 @@ export function useStreamingChat(panelId: string, backend: ChatBackend) {
         metrics: IDLE_METRICS,
       }));
 
-      const handleToken = (token: string) => {
+      const flushPendingTokens = () => {
+        if (flushTimerRef.current) {
+          clearTimeout(flushTimerRef.current);
+          flushTimerRef.current = null;
+        }
+        if (pendingTokensRef.current === "") return;
+        const batch = pendingTokensRef.current;
+        pendingTokensRef.current = "";
         setState((prev) => {
           const msgs = [...prev.messages];
           const last = msgs[msgs.length - 1];
-          msgs[msgs.length - 1] = { ...last, content: last.content + token };
+          msgs[msgs.length - 1] = { ...last, content: last.content + batch };
           return { ...prev, messages: msgs };
         });
+      };
+
+      const scheduleFlush = () => {
+        if (flushTimerRef.current) return;
+        flushTimerRef.current = setTimeout(flushPendingTokens, 50);
+      };
+
+      const handleToken = (token: string) => {
+        pendingTokensRef.current += token;
+        scheduleFlush();
       };
 
       const handleTTFB = (ms: number) => {
@@ -54,6 +73,7 @@ export function useStreamingChat(panelId: string, backend: ChatBackend) {
         tokenCount: number;
       }) => {
         controllerRef.current = null;
+        flushPendingTokens();
         setState((prev) => ({
           ...prev,
           isLoading: false,
@@ -68,6 +88,7 @@ export function useStreamingChat(panelId: string, backend: ChatBackend) {
 
       const handleError = (err: Error) => {
         controllerRef.current = null;
+        flushPendingTokens();
         setState((prev) => ({
           ...prev,
           isLoading: false,

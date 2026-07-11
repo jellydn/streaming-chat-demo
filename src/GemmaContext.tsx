@@ -13,6 +13,8 @@ export interface GemmaContextValue {
   ready: boolean;
   loadingModel: boolean;
   loadProgress: string;
+  /** True when the browser supports WebGPU (required for Gemma). */
+  supported: boolean;
   initEngine: () => Promise<void>;
   sendMessage: (
     content: string,
@@ -28,6 +30,11 @@ export interface GemmaContextValue {
 }
 
 const GemmaContext = createContext<GemmaContextValue | null>(null);
+
+function checkWebGpuSupport(): boolean {
+  if (typeof navigator === "undefined") return false;
+  return "gpu" in navigator;
+}
 
 /** Shared chunk shape for WebLLM streaming. */
 type GemmaChunk = { choices?: Array<{ delta?: { content?: string } }> };
@@ -72,10 +79,16 @@ export function GemmaProvider({ children }: { children: ReactNode }) {
   const [ready, setReady] = useState(false);
   const [loadingModel, setLoadingModel] = useState(false);
   const [loadProgress, setLoadProgress] = useState("");
+  const [supported] = useState(() => checkWebGpuSupport());
   const engineRef = useRef<any>(null);
   const abortingRef = useRef(false);
 
   const initEngine = useCallback(async () => {
+    if (!supported) {
+      setLoadProgress("WebGPU is not supported in this browser.");
+      return;
+    }
+
     if (engineRef.current) {
       setReady(true);
       return;
@@ -217,6 +230,7 @@ export function GemmaProvider({ children }: { children: ReactNode }) {
           ready,
           loadingModel,
           loadProgress,
+          supported,
           initEngine,
           sendMessage,
           sendMessageNonStreaming,
