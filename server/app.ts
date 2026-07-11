@@ -2,7 +2,7 @@ import { Hono } from "hono";
 import type { Context } from "hono";
 import { stream } from "hono/streaming";
 import { cors } from "hono/cors";
-import { createRateLimiter, type RateLimiter } from "./rateLimiter";
+import { createRateLimiter, type RateLimiter } from "./rateLimiter.js";
 
 const OPENAI_MODEL = "gpt-4o-mini";
 const OPENAI_BASE = "https://api.openai.com/v1/chat/completions";

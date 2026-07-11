@@ -1,6 +1,6 @@
 import { describe, it, expect, beforeEach, afterEach } from "vitest";
-import { createApp } from "./app";
-import { createRateLimiter } from "./rateLimiter";
+import { createApp } from "./app.js";
+import { createRateLimiter } from "./rateLimiter.js";
 
 describe("server routes", () => {
   const originalEnv = process.env;

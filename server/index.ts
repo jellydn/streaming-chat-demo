@@ -1,6 +1,6 @@
 import { serve } from "@hono/node-server";
 import { serveStatic } from "@hono/node-server/serve-static";
-import app from "./app";
+import app from "./app.js";
 
 // In production (Docker/Dokku), serve the Vite-built SPA.
 // Vercel handles static files via vercel.json — this path is Node.js only.
