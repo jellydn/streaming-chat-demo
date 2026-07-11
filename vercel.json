@@ -7,6 +7,10 @@
       "handle": "filesystem"
     },
     {
+      "src": "/api/(.*)",
+      "dest": "/api/[...route]"
+    },
+    {
       "src": "/(.*)",
       "dest": "/index.html"
     }
