@@ -9,6 +9,22 @@ function buildMetrics(
   return { timeToFirstToken: null, totalTime, tokenCount };
 }
 
+/**
+ * Estimate token count from response text.
+ * Uses Intl.Segmenter when available; otherwise falls back to word count.
+ * Average English token length is ~4 characters, but word-based segmentation
+ * gives a more stable estimate across languages.
+ */
+function estimateTokenCount(text: string): number {
+  if (typeof Intl !== "undefined" && "Segmenter" in Intl) {
+    const segmenter = new Intl.Segmenter(undefined, { granularity: "word" });
+    const words = Array.from(segmenter.segment(text)).filter((s) => s.isWordLike);
+    return Math.max(1, Math.ceil(words.length * 1.3));
+  }
+  const words = text.trim().split(/\s+/).filter(Boolean);
+  return Math.max(1, Math.ceil(words.length * 1.3));
+}
+
 export function useNonStreamingChat(panelId: string, backend: ChatBackend) {
   const [state, setState] = useState<PanelState>({
     id: panelId,
@@ -36,9 +52,7 @@ export function useNonStreamingChat(panelId: string, backend: ChatBackend) {
 
       try {
         const { content: responseContent, totalTime } = await backend.completeMessage(content);
-        // Rough English-text estimate: ~4 characters per token
-        const CHARS_PER_TOKEN = 4;
-        const tokenCount = Math.ceil(responseContent.length / CHARS_PER_TOKEN);
+        const tokenCount = estimateTokenCount(responseContent);
 
         setState((prev) => {
           const msgs = [...prev.messages];
